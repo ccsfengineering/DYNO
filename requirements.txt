@@ -1,1 +1,1 @@
-pip install pylibftdi
+pylibftdi
