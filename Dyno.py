@@ -64,7 +64,7 @@ def main():
 
     ### Retrieve Data ###
         #  Get Raw Data
-        Start_Time = datetime.__name__
+        Start_Time = datetime.datetime.now()
         print(Start_Time)
         T0 = time.time()
         hex_data = ()
