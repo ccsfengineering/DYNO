@@ -1,7 +1,33 @@
 import time
 import datetime
 import csv
+import pprint
+import argparse
 from pylibftdi import Device
+
+Start_Date = datetime.datetime.now()
+parser = argparse.ArgumentParser()
+pp = pprint.PrettyPrinter(indent=2)
+
+parser.add_argument('--measurment', dest='measurement', type=str, help='add measurement (Default is torque, rpm, and power)')
+parser.add_argument('-m', dest='measurement', type=str, help='add measurement (Default is torque(t), rpm(r), and power(p))',)
+parser.add_argument('--interval', dest='interval', type=float, help='specify interval (Default is 0.125s. Must be greater than 0.1s)')
+parser.add_argument('-i', dest='interval', type=float, help='specify interval (Default is 0.125s. Must be greater than 0.1s)')
+parser.add_argument('--filename', dest='filename', type=str, help='specify filename (Default is output(<time>) You don\'t have to include .csv)')
+parser.add_argument('-f', dest='filename', type=str, help='specify filename (Default is output(<time>) You don\'t have to include .csv)')
+args = parser.parse_args()
+
+measurement = args.measurement
+if measurement == None: measurement = 'trp'
+interval_time = args.interval
+if interval_time == None: interval_time = 0.125
+filename = f'{args.filename}.csv'
+if args.filename == None: filename = f'output({Start_Date})'
+
+
+print(f'Measurment(s): {measurement}')
+print(f'Interval: {interval_time}')
+print(f'Filename: {filename}')
 
 def calculate_crc(data):
     crc = 0xFFFF
@@ -45,12 +71,13 @@ def hex_to_decimal(hex_string):
 
 def main():
     ### Variables ###
-    # Define the Modbus request bytes "\x01\x03\x00\x00\x00\x02"
+    # Define the Modbus request bytes
     modbus_request = {
         "torque" : b"\x01\x03\x00\x00\x00\x02",
         "rpm" : b"\x01\x03\x00\x02\x00\x02",
         "power" : b"\x01\x03\x00\x04\x00\x02"
     }
+    
     # Add checksum to requests
     request_with_crc = {}
     for req in modbus_request.items():
@@ -62,85 +89,68 @@ def main():
     with Device(mode='t') as dev:
         dev.baudrate = 9600
 
+
     ### Retrieve Data ###
-        #  Get Raw Data
-        Start_Time = datetime.datetime.now()
-        print(Start_Time)
+    # Log Times
+        wait_time = 0.1 # must be less than interval time
         T0 = time.time()
-        hex_data = ()
-        for req in request_with_crc.items():
-            print(req[1])
-            dev.write(req[1])
-            time.sleep(0.1)
-            response = dev.read(64)
-            #print(response)
-            response_hex = response.hex() if isinstance(response, bytes) else response
-            response_hex = utf8_to_hex(response)
-            #print(response_hex)
-            hex_data = hex_data + (response_hex,)
-        print(hex_data)
+
+    # Get Raw Data
+        hex_data = []
+        try:
+            print('Collecting Data...  (CTRL+C when done)\n')
+            while True:
+                for req in request_with_crc.items():
+                    T1 = time.time()
+                    dev.write(req[1])
+                    time.sleep(wait_time)
+                    T2 = time.time()
+                    response = dev.read(64)
+                    response_hex = response.hex() if isinstance(response, bytes) else response
+                    response_hex = utf8_to_hex(response)
+                    hex_data += [response_hex, T2,],
+                    T3 = time.time()
+                    time.sleep(interval_time - wait_time - (T1-T3))
+        except KeyboardInterrupt:
+            pass
 
         
-        # Format Raw Data    
-        l = ()
-        for resp in hex_data:
-            value = resp[10:14]
-            measurement = hex_to_decimal(value)
-            l = l + (measurement,)
-        print(l)
-        measurements = [l[x:x+3] for x in range(0, len(l),3)]
-        print(measurements)
+    # Format Data    
+    l = []
+    for resp in hex_data:
+        value = resp[0][10:14]
+        #print(value)
+        measurement = hex_to_decimal(value)
+        l += measurement, (resp[1]-hex_data[0][1]),
+    measurements = [l[x:x+(2*len(modbus_request))] for x in range(0, len(l),(2*len(modbus_request)))]
 
-"""
-TODO:
-Add timers
-Add Timestamps
-Add loops
-Format for csv properly
-Setup Intervals
-Add command line arguments
-"""
+    fields = []
+    for request in modbus_request:
+        fields += [request,f"{request}(time)"]
 
-"""
-        ### Print Formatted Data to CSV File ###
-        #f = open("measurments.csv", "x")    
-        with open("measurments.csv", 'x') as file:
-            writer = csv.writer(file)
-            writer.writerow(measurements)
-"""
-            
-
-
-
-
-    #modbus_request = request["torque"]
-    
-    # Start a timer used to calculate intervals
-    #T0 = time()
-   
-    
-"""
-    # Calculate CRC16 checksum
-    #crc = calculate_crc(modbus_request)
-    
-    # Combine the request and CRC16
-    #request_with_crc = modbus_request + crc
-        
-
-
-        # Send the request
-        
-        # Wait for a response (adjust this as needed)
-        #time.sleep(0.05)
-        
-        # Read the response (adjust the number of bytes to read as needed)
-        response = dev.read(256)  # Adjust the read size according to your device's response
-        print(response, type(response))
-        # Print the response as hex
-        print("Response:", response_hex, type(response_hex))
-"""    
-
+    print(fields)
+    pp.pprint(measurements)
+    print('\nDone!')
+    with open(f'data/{filename}.csv', 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile, delimiter=",")
+        writer.writerow(fields)
+        writer.writerows(measurements)
+    print(f'File saved at data/{filename}.csv')
 
 
 if __name__ == "__main__":
     main()
+
+"""
+TODO:
+xAdd timers
+xAdd Timestamps
+xAdd loops
+xFormat for csv properly
+xSetup Intervals
+Add command line arguments
+    ex.
+    --measurement trp -m trp
+    --filename <filename> -f <filename> (auto .csv)
+    --interval <time> -i <time> 
+"""
