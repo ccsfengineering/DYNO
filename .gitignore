@@ -1,5 +1,10 @@
+# Script Related
 data/*
 .logs/*
+
+# exception
+!data/.gitkeep
+!.logs/.gitkeep
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
