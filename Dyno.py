@@ -5,6 +5,21 @@ import pprint
 import argparse
 from pylibftdi import Device
 
+
+### Define All Variables ###
+def calculate_crc(data):
+    crc = 0xFFFF
+    for byte in data:
+        crc ^= byte
+        #print(crc)
+        for _ in range(8):
+            if crc & 1:
+                crc >>= 1
+                crc ^= 0xA001
+            else:
+                crc >>= 1
+    return crc.to_bytes(2, byteorder='little')
+
 Start_Date = datetime.datetime.now()
 parser = argparse.ArgumentParser()
 pp = pprint.PrettyPrinter(indent=2)
@@ -19,28 +34,33 @@ args = parser.parse_args()
 
 measurement = args.measurement
 if measurement == None: measurement = 'trp'
-interval_time = args.interval
-if interval_time == None: interval_time = 0.125
-filename = f'{args.filename}.csv'
+INTERVAL_TIME = args.interval
+if INTERVAL_TIME == None: INTERVAL_TIME = 0.1
+filename = f'{args.filename}'
 if args.filename == None: filename = f'output({Start_Date})'
 
-
 print(f'Measurment(s): {measurement}')
-print(f'Interval: {interval_time}')
-print(f'Filename: {filename}')
+print(f'Interval: {INTERVAL_TIME}')
+print(f'Filename: {filename}.csv')
+WAIT_TIME = 0.08 # lowest tested success was 0.08s
 
-def calculate_crc(data):
-    crc = 0xFFFF
-    for byte in data:
-        crc ^= byte
-        #print(crc)
-        for _ in range(8):
-            if crc & 1:
-                crc >>= 1
-                crc ^= 0xA001
-            else:
-                crc >>= 1
-    return crc.to_bytes(2, byteorder='little')
+# Define the Modbus request bytes
+modbus_request = {
+    "torque" : b"\x01\x03\x00\x00\x00\x02",
+    "rpm" : b"\x01\x03\x00\x02\x00\x02",
+    "power" : b"\x01\x03\x00\x04\x00\x02"
+}
+
+# Add checksum to modbus requests
+request_with_crc = {}
+for req in modbus_request.items():
+    crc = calculate_crc(req[1])
+    request_with_crc[req[0]] = req[1] + crc    
+print(request_with_crc) 
+
+# Initialize the FTDI device for RS485 communication
+dev = Device(mode='t') # Device is a pylibftdi class
+dev.baudrate = 9600
 
 
 def utf8_to_hex(input_string):
@@ -69,57 +89,48 @@ def hex_to_decimal(hex_string):
         return "Invalid hex string"
 
 
+def Get_Measurement_In_Hex(Device, request):
+    Device.write(request[1])
+    t1 = time.time()
+    time.sleep(WAIT_TIME)
+    response = Device.read(64)
+    t2 = time.time()
+    response_hex = response.hex() if isinstance(response, bytes) else response
+    response_hex = utf8_to_hex(response)
+    return response_hex,t1,t2
+
+
 def main():
-    ### Variables ###
-    # Define the Modbus request bytes
-    modbus_request = {
-        "torque" : b"\x01\x03\x00\x00\x00\x02",
-        "rpm" : b"\x01\x03\x00\x02\x00\x02",
-        "power" : b"\x01\x03\x00\x04\x00\x02"
-    }
-    
-    # Add checksum to requests
-    request_with_crc = {}
-    for req in modbus_request.items():
-        crc = calculate_crc(req[1])
-        request_with_crc[req[0]] = req[1] + crc    
-    print(request_with_crc)    
-   
-    # Initialize the FTDI device for RS485 communication
-    with Device(mode='t') as dev:
-        dev.baudrate = 9600
-
-
     ### Retrieve Data ###
     # Log Times
-        wait_time = 0.1 # must be less than interval time
-        T0 = time.time()
+    t0 = time.time()
 
     # Get Raw Data
-        hex_data = []
-        try:
-            print('Collecting Data...  (CTRL+C when done)\n')
-            while True:
-                for req in request_with_crc.items():
-                    T1 = time.time()
-                    dev.write(req[1])
-                    time.sleep(wait_time)
-                    T2 = time.time()
-                    response = dev.read(64)
-                    response_hex = response.hex() if isinstance(response, bytes) else response
-                    response_hex = utf8_to_hex(response)
-                    hex_data += [response_hex, T2,],
-                    T3 = time.time()
-                    time.sleep(interval_time - wait_time - (T1-T3))
-        except KeyboardInterrupt:
-            pass
+    hex_data = []
+    try:
+        print('Collecting Data...  (CTRL+C when done)\n')
+        while True:
+            for req in request_with_crc.items():
+                response_hex,t1,t2 = Get_Measurement_In_Hex(dev,req)
+                """
+                # for negative values
+                if response_hex[6] == 'c':
+                    response_hex = response_hex.encode('utf-8')
+                    #response_hex = bytes([~byte & 0xFF for byte in response_hex])
+                    
+                    response_hex = str(response_hex)
+                """
+                hex_data += [response_hex, t2,],
+                t3 = time.time()
+                time.sleep(INTERVAL_TIME - WAIT_TIME - (t1-t3))
+    except KeyboardInterrupt:
+        pass
 
-        
+    
     # Format Data    
     l = []
     for resp in hex_data:
         value = resp[0][10:14]
-        #print(value)
         measurement = hex_to_decimal(value)
         l += measurement, (resp[1]-hex_data[0][1]),
     measurements = [l[x:x+(2*len(modbus_request))] for x in range(0, len(l),(2*len(modbus_request)))]
@@ -128,6 +139,8 @@ def main():
     for request in modbus_request:
         fields += [request,f"{request}(time)"]
 
+
+    ### Save to CSV Files ###
     print(fields)
     pp.pprint(measurements)
     print('\nDone!')
@@ -137,17 +150,17 @@ def main():
         writer.writerows(measurements)
     print(f'File saved at data/{filename}.csv')
 
+    with open(f'.logs/{filename}.csv', 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile, delimiter=",")
+        writer.writerow(fields)
+        writer.writerows(hex_data)
 
 if __name__ == "__main__":
     main()
 
 """
 TODO:
-xAdd timers
-xAdd Timestamps
-xAdd loops
-xFormat for csv properly
-xSetup Intervals
+fix time drift
 Add command line arguments
     ex.
     --measurement trp -m trp
