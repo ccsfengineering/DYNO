@@ -21,7 +21,7 @@ def calculate_crc(data):
     return crc.to_bytes(2, byteorder='little')
 
 Start_Date = datetime.datetime.now()
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser() # creates command line arguments for Dyno.py
 pp = pprint.PrettyPrinter(indent=2)
 
 parser.add_argument('--measurment', dest='measurement', type=str, help='add measurement (Default is torque, rpm, and power)')
