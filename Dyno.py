@@ -3,6 +3,7 @@ import datetime
 import csv
 import pprint
 import argparse
+import sys
 from pylibftdi import Device
 
 
@@ -59,9 +60,12 @@ for req in modbus_request.items():
 print(request_with_crc) 
 
 # Initialize the FTDI device for RS485 communication
-dev = Device(mode='t') # Device is a pylibftdi class
-dev.baudrate = 9600
-
+try:
+    dev = Device(mode='t') # Device is a pylibftdi class
+    dev.baudrate = 9600
+except:
+    print("\nDynomometer not detected!\nPlease check connection and try again.")
+    sys.exit(1)
 
 def utf8_to_hex(input_string):
     # Encode the input string as UTF-8
