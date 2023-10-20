@@ -50,7 +50,9 @@ measurement_dict = {'t':b"\x01\x03\x00\x00\x00\x02",
 
 # Define the Modbus request bytes
 for i in measurement:
-    modbus_request[i] = measurement_dict[measurement[i]]
+    j = 0
+    modbus_request[j] = measurement_dict[measurement[i]]
+    j += 1
 
 # Add checksum to modbus requests
 request_with_crc = {}
