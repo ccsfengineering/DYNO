@@ -49,7 +49,7 @@ measurement_dict = {'t':b"\x01\x03\x00\x00\x00\x02",
                     'p':b"\x01\x03\x00\x04\x00\x02"}
 
 # Define the Modbus request bytes
-modbus_request = []
+modbus_request = [0] * len(measurement)
 for i in measurement:
     j = 0
     modbus_request[j] = measurement_dict[measurement[j]]
