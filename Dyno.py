@@ -27,7 +27,7 @@ pp = pprint.PrettyPrinter(indent=2)
 
 #For argparse documentation go here: https://docs.python.org/3/library/argparse.html
 #For argparse tutorial go here: https://docs.python.org/3/howto/argparse.html
-parser.add_argument('-m','--measurment', dest='measurement', type=str, help='add measurement (Default is torque(t), rpm(r), and power(p))')
+parser.add_argument('-m','--measurement', dest='measurement', type=str, help='add measurement (Default is torque(t), rpm(r), and power(p))')
 parser.add_argument('-i','--interval', dest='interval', type=float, help='specify interval (Default is 0.125s. Must be greater than 0.1s)')
 parser.add_argument('-f','--filename', dest='filename', type=str, help='specify filename (Default is output(<time>) You don\'t have to include .csv)')
 args = parser.parse_args()
