@@ -55,9 +55,9 @@ modbus_request = [measurement_dict[measurement[0]],
 
 # Add checksum to modbus requests
 request_with_crc = {}
-for req in modbus_request.items():
-    crc = calculate_crc(req[1])
-    request_with_crc[req[0]] = req[1] + crc    
+for req in modbus_request:
+    crc = calculate_crc(req)
+    request_with_crc[req] = req + crc    
 print(request_with_crc) 
 
 # Initialize the FTDI device for RS485 communication
