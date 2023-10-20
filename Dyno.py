@@ -54,9 +54,9 @@ for i in range(len(measurement)):
     modbus_request[i] = measurement_dict[measurement[i]]
 print(modbus_request)
 # Add checksum to modbus requests
-request_with_crc = {}
+request_with_crc = [0] * len(measurement)
+i = 0
 for req in modbus_request:
-    i = 0
     crc = calculate_crc(req)
     request_with_crc[i] = req + crc 
     i += 1
@@ -117,7 +117,7 @@ def main():
     try:
         print('Collecting Data...  (CTRL+C when done)\n')
         while True:
-            for req in request_with_crc.items():
+            for req in request_with_crc:
                 response_hex,t1,t2 = Get_Measurement_In_Hex(dev,req)
                 """
                 # for negative values
