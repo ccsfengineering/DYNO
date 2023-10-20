@@ -44,12 +44,14 @@ print(f'Interval: {INTERVAL_TIME}')
 print(f'Filename: {filename}.csv')
 WAIT_TIME = 0.08 # lowest tested success was 0.08s
 
+measurement_dict = {'t':b"\x01\x03\x00\x00\x00\x02", 
+                    'r':b"\x01\x03\x00\x02\x00\x02", 
+                    'p':b"\x01\x03\x00\x04\x00\x02"}
+
 # Define the Modbus request bytes
-modbus_request = {
-    "torque" : b"\x01\x03\x00\x00\x00\x02",
-    "rpm" : b"\x01\x03\x00\x02\x00\x02",
-    "power" : b"\x01\x03\x00\x04\x00\x02"
-}
+modbus_request = [measurement_dict[measurement[0]], 
+                  measurement_dict[measurement[1]], 
+                  measurement_dict[measurement[2]]]
 
 # Add checksum to modbus requests
 request_with_crc = {}
