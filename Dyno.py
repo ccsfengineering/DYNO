@@ -33,7 +33,7 @@ parser.add_argument('-f','--filename', dest='filename', type=str, help='specify 
 args = parser.parse_args()
 
 measurement = args.measurement
-if measurement == None: measurement = 'trp'
+if measurement == None: measurement = 'tr'
 INTERVAL_TIME = args.interval
 if INTERVAL_TIME == None: INTERVAL_TIME = 0.1
 filename = f'{args.filename}'
