@@ -35,7 +35,7 @@ args = parser.parse_args()
 measurement = args.measurement
 if measurement == None: measurement = 'tr'
 INTERVAL_TIME = args.interval
-if INTERVAL_TIME == None: INTERVAL_TIME = 0.1
+if INTERVAL_TIME == None: INTERVAL_TIME = 0.015
 filename = f'{args.filename}'
 if args.filename == None: filename = f'output({Start_Date})'
 
@@ -97,7 +97,7 @@ def hex_to_decimal(hex_string):
 
 
 def Get_Measurement_In_Hex(Device, request):
-    Device.write(request[1])
+    Device.write(request)
     t1 = time.time()
     time.sleep(WAIT_TIME)
     response = Device.read(64)
@@ -129,7 +129,7 @@ def main():
                 """
                 hex_data += [response_hex, t2,],
                 t3 = time.time()
-                time.sleep(INTERVAL_TIME - WAIT_TIME - (t1-t3))
+                time.sleep(INTERVAL_TIME) #- WAIT_TIME - (t1-t3))
     except KeyboardInterrupt:
         pass
 
@@ -144,13 +144,15 @@ def main():
 
     fields = []
     for request in modbus_request:
+        
         fields += [request,f"{request}(time)"]
 
 
     ### Save to CSV Files ###
+    print()
     print(fields)
     pp.pprint(measurements)
-    print('\nDone!')
+    print('\nDone!\n')
     with open(f'data/{filename}.csv', 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=",")
         writer.writerow(fields)
